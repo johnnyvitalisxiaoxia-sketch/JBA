@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shield, ShieldAlert, Plus, Trash2, Edit2, Check, X, Cpu, Activity, Database, Lock, Unlock, Zap, ChevronRight, Users, Map, Target, PieChart } from 'lucide-react';
+import { Shield, ShieldAlert, Plus, Trash2, Edit2, Check, X, Cpu, Activity, Database, Lock, Unlock, Zap, ChevronRight, Users, Map, Target, PieChart, MessageSquare } from 'lucide-react';
 import ParticleBackground from './components/ParticleBackground';
 import { TacticalVisuals } from './components/TacticalVisuals';
 import { LandingPage } from './components/LandingPage';
+import { ChatEngine } from './components/ChatEngine';
 import { Player, AnalysisResult } from './types';
 import { GoogleGenAI, Type } from '@google/genai';
 import ReactMarkdown from 'react-markdown';
@@ -61,6 +62,7 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [activeTab, setActiveTab] = useState<keyof AnalysisResult>('structure');
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [showChatEngine, setShowChatEngine] = useState(false);
 
   const fetchPlayers = async () => {
     const { data, error } = await supabase
@@ -309,12 +311,18 @@ ${playersText}${extraInfoSection}
         </div>
         
         <div className="flex items-center gap-4">
+          <button
+            onClick={() => setShowChatEngine(true)}
+            className="px-4 py-1.5 text-xs font-mono text-blue-400 border border-blue-500/30 rounded hover:bg-blue-500/10 transition-colors flex items-center gap-2"
+          >
+            <MessageSquare className="w-3.5 h-3.5" /> 对话引擎
+          </button>
           {isAdmin ? (
             <div className="flex items-center gap-4">
               <span className="text-xs font-mono text-green-400 flex items-center gap-1">
                 <Shield className="w-4 h-4" /> 管理员模式已激活
               </span>
-              <button 
+              <button
                 onClick={handleLogout}
                 className="px-4 py-1.5 text-xs font-mono text-red-400 border border-red-500/30 rounded hover:bg-red-500/10 transition-colors"
               >
@@ -322,7 +330,7 @@ ${playersText}${extraInfoSection}
               </button>
             </div>
           ) : (
-            <button 
+            <button
               onClick={() => setShowAdminLogin(true)}
               className="px-4 py-1.5 text-xs font-mono text-cyan-400 border border-cyan-500/30 rounded hover:bg-cyan-500/10 transition-colors flex items-center gap-2"
             >
@@ -677,6 +685,16 @@ ${playersText}${extraInfoSection}
               </form>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Chat Engine */}
+      <AnimatePresence>
+        {showChatEngine && (
+          <ChatEngine
+            players={players}
+            onClose={() => setShowChatEngine(false)}
+          />
         )}
       </AnimatePresence>
 
