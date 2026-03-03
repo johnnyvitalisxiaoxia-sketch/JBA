@@ -71,7 +71,7 @@ ${playersText}${extraInfoSection}
 4. 无论在任何模式下，都必须严格遵守上述格式，确保段落之间有明显的换行和间距。`;
 
     const modelName =
-      analysisMode === "deep" ? "gemini-3.1-pro-preview" : "gemini-2.5-flash";
+      analysisMode === "deep" ? "gemini-2.5-pro" : "gemini-2.5-flash";
 
     const response = await ai.models.generateContent({
       model: modelName,
