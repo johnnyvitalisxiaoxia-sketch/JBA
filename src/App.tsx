@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shield, ShieldAlert, Plus, Trash2, CreditCard as Edit2, Check, X, Cpu, Activity, Database, Lock, Clock as Unlock, Zap, ChevronRight, Users, Map, Target, ChartPie as PieChart } from 'lucide-react';
+import { Shield, ShieldAlert, Plus, Trash2, Edit2, Check, X, Cpu, Activity, Database, Lock, Unlock, Zap, ChevronRight, Users, Map, Target, PieChart } from 'lucide-react';
 import ParticleBackground from './components/ParticleBackground';
 import { TacticalVisuals } from './components/TacticalVisuals';
 import { LandingPage } from './components/LandingPage';
 import { Player, AnalysisResult } from './types';
+import { GoogleGenAI, Type } from '@google/genai';
 import ReactMarkdown from 'react-markdown';
-import { supabase } from './lib/supabase';
 
 const TABS: { key: keyof AnalysisResult; label: string; icon: React.ReactNode }[] = [
   { key: 'structure', label: '阵容结构', icon: <Users className="w-5 h-5" /> },
@@ -15,6 +15,15 @@ const TABS: { key: keyof AnalysisResult; label: string; icon: React.ReactNode }[
   { key: 'offense', label: '进攻体系', icon: <Zap className="w-5 h-5" /> },
   { key: 'defense', label: '防守体系', icon: <Shield className="w-5 h-5" /> },
   { key: 'possession', label: '球权分配', icon: <PieChart className="w-5 h-5" /> },
+];
+
+const INITIAL_PLAYERS: Player[] = [
+  { id: '1', name: '张三', handling: 8, shooting: 7, defense: 6, rebounding: 5, stamina: 8 },
+  { id: '2', name: '李四', handling: 6, shooting: 9, defense: 5, rebounding: 4, stamina: 7 },
+  { id: '3', name: '王五', handling: 5, shooting: 6, defense: 9, rebounding: 8, stamina: 9 },
+  { id: '4', name: '赵六', handling: 7, shooting: 5, defense: 7, rebounding: 9, stamina: 8 },
+  { id: '5', name: '钱七', handling: 4, shooting: 4, defense: 8, rebounding: 10, stamina: 9 },
+  { id: '6', name: '孙八', handling: 9, shooting: 8, defense: 4, rebounding: 3, stamina: 7 },
 ];
 
 const StatBar = ({ label, value, colorClass, bgClass }: { label: string, value: number, colorClass: string, bgClass: string }) => (
@@ -38,16 +47,14 @@ export default function App() {
   const [appState, setAppState] = useState<'landing' | 'app'>('landing');
   const [gameMode, setGameMode] = useState<number>(5);
 
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [loadingPlayers, setLoadingPlayers] = useState(true);
+  const [players, setPlayers] = useState<Player[]>(INITIAL_PLAYERS);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [adminError, setAdminError] = useState('');
 
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
-  const [extraInfo, setExtraInfo] = useState('');
-
+  
   const [showPlayerForm, setShowPlayerForm] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [formData, setFormData] = useState<Omit<Player, 'id'>>({
@@ -60,29 +67,6 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [activeTab, setActiveTab] = useState<keyof AnalysisResult>('structure');
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
-
-  const fetchPlayers = async () => {
-    const { data, error } = await supabase
-      .from('players')
-      .select('*')
-      .order('created_at', { ascending: true });
-    if (!error && data) {
-      setPlayers(data.map(p => ({
-        id: p.id,
-        name: p.name,
-        handling: p.handling,
-        shooting: p.shooting,
-        defense: p.defense,
-        rebounding: p.rebounding,
-        stamina: p.stamina,
-      })));
-    }
-    setLoadingPlayers(false);
-  };
-
-  useEffect(() => {
-    fetchPlayers();
-  }, []);
 
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,44 +94,20 @@ export default function App() {
     }
   };
 
-  const handleSavePlayer = async (e: React.FormEvent) => {
+  const handleSavePlayer = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingPlayer) {
-      const { error } = await supabase
-        .from('players')
-        .update({
-          name: formData.name,
-          handling: formData.handling,
-          shooting: formData.shooting,
-          defense: formData.defense,
-          rebounding: formData.rebounding,
-          stamina: formData.stamina,
-        })
-        .eq('id', editingPlayer.id);
-      if (!error) await fetchPlayers();
+      setPlayers(players.map(p => p.id === editingPlayer.id ? { ...formData, id: p.id } : p));
     } else {
-      const { error } = await supabase
-        .from('players')
-        .insert({
-          name: formData.name,
-          handling: formData.handling,
-          shooting: formData.shooting,
-          defense: formData.defense,
-          rebounding: formData.rebounding,
-          stamina: formData.stamina,
-        });
-      if (!error) await fetchPlayers();
+      setPlayers([...players, { ...formData, id: Date.now().toString() }]);
     }
     setShowPlayerForm(false);
     setEditingPlayer(null);
   };
 
-  const handleDeletePlayer = async (id: string) => {
-    const { error } = await supabase.from('players').delete().eq('id', id);
-    if (!error) {
-      await fetchPlayers();
-      setSelectedPlayerIds(selectedPlayerIds.filter(pid => pid !== id));
-    }
+  const handleDeletePlayer = (id: string) => {
+    setPlayers(players.filter(p => p.id !== id));
+    setSelectedPlayerIds(selectedPlayerIds.filter(pid => pid !== id));
   };
 
   const openEditForm = (player: Player) => {
@@ -173,13 +133,13 @@ export default function App() {
 
   const analyzeTeam = async () => {
     if (selectedPlayerIds.length !== gameMode) return;
-
+    
     setIsAnalyzing(true);
     setAnalysisResult(null);
     setAnalyzeError(null);
     setProgress(0);
 
-    const FIXED_TIME = analysisMode === 'deep' ? 6000 : 2000;
+    const FIXED_TIME = analysisMode === 'deep' ? 6000 : 2000; // 6s for deep, 2s for fast
     const startTime = Date.now();
 
     const progressInterval = setInterval(() => {
@@ -190,43 +150,81 @@ export default function App() {
 
     try {
       const selectedPlayers = players.filter(p => selectedPlayerIds.includes(p.id));
-
-      const playersText = selectedPlayers.map(p =>
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      
+      const playersText = selectedPlayers.map(p => 
         `- ${p.name}: 控球组织 ${p.handling}/10, 投篮效率 ${p.shooting}/10, 防守影响 ${p.defense}/10, 篮板内线 ${p.rebounding}/10, 体能冲击 ${p.stamina}/10 (总分: ${p.handling + p.shooting + p.defense + p.rebounding + p.stamina}/50)`
       ).join('\n');
 
-      const edgeFunctionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze_team`;
-      const headers = {
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-      };
+      const prompt = `作为顶级的篮球战术分析师，请根据以下${gameMode}名首发球员的能力值（单项满分10分），为我们的班级篮球赛（${gameMode}V${gameMode}模式）制定全场战术分析。
 
+球员名单及能力值：
+${playersText}
+
+请从以下6个方面进行详细、专业、富有洞察力的本质分析。请务必深入挖掘球员属性之间的化学反应，并紧密结合${gameMode}V${gameMode}的比赛特点。
+【排版要求】：
+1. 必须使用纯正的Markdown格式，绝对不要使用 HTML 标签（如 <br>、<b> 等）。
+2. 每个维度请严格分为以下三个段落，并且每个段落之间必须空一行（使用两个换行符）：
+
+### 核心观点
+（一句话总结该维度的核心策略）
+
+### 详细解析
+（深入挖掘球员属性之间的化学反应，分析具体原因）
+
+### 关键执行点
+- （执行点1）
+- （执行点2）
+- （执行点3）
+
+3. 语言要专业、热血、富有科技感。
+4. 无论在任何模式下，都必须严格遵守上述格式，确保段落之间有明显的换行和间距。`;
+
+      const modelName = analysisMode === 'deep' ? "gemini-3.1-pro-preview" : "gemini-2.5-flash";
+
+      const responsePromise = ai.models.generateContent({
+        model: modelName,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              structure: { type: Type.STRING, description: "阵容结构 (分析这套阵容的整体特点、优势与劣势)" },
+              positions: { type: Type.STRING, description: "位置分配 (为这5名球员分配最合适的场上位置1号位到5号位)" },
+              roles: { type: Type.STRING, description: "个人职责 (详细说明每个人在场上应该做什么，发挥什么作用)" },
+              offense: { type: Type.STRING, description: "进攻体系 (推荐适合这套阵容的进攻战术，如挡拆、传切、快攻等)" },
+              defense: { type: Type.STRING, description: "防守体系 (推荐适合的防守策略，如盯人、2-3联防、3-2联防、全场紧逼等)" },
+              possession: { type: Type.STRING, description: "球权分配 (明确核心主攻点、组织核心以及角色球员的球权占比)" }
+            },
+            required: ["structure", "positions", "roles", "offense", "defense", "possession"]
+          }
+        }
+      });
+      
       const [response] = await Promise.all([
-        fetch(edgeFunctionUrl, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            gameMode,
-            playersText,
-            extraInfo,
-            analysisMode,
-          }),
-        }),
+        responsePromise,
         new Promise(resolve => setTimeout(resolve, FIXED_TIME))
       ]);
-
+      
       clearInterval(progressInterval);
       setProgress(100);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "API request failed");
+      
+      const text = response.text;
+      if (!text) {
+        throw new Error("API返回数据为空，可能触发了安全限制。");
       }
 
-      const result = await response.json() as AnalysisResult;
+      // Robust JSON parsing to handle potential markdown code blocks
+      let cleanText = text.trim();
+      if (cleanText.startsWith('```')) {
+        cleanText = cleanText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+      }
 
+      const parsed = JSON.parse(cleanText) as AnalysisResult;
+      
       setTimeout(() => {
-        setAnalysisResult(result);
+        setAnalysisResult(parsed);
         setActiveTab('structure');
         setIsAnalyzing(false);
       }, 300);
@@ -311,14 +309,6 @@ export default function App() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {loadingPlayers && (
-              <div className="col-span-full flex items-center justify-center py-16 text-gray-500">
-                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
-                  <Cpu className="w-6 h-6 text-cyan-400" />
-                </motion.div>
-                <span className="ml-3 text-sm font-mono">Loading players...</span>
-              </div>
-            )}
             <AnimatePresence>
               {players.map(player => {
                 const isSelected = selectedPlayerIds.includes(player.id);
@@ -410,17 +400,6 @@ export default function App() {
                 </div>
               )}
 
-              <div className="mb-4">
-                <label className="block text-xs font-mono text-gray-400 mb-2 uppercase tracking-wider">补充信息（可选）</label>
-                <textarea
-                  value={extraInfo}
-                  onChange={(e) => setExtraInfo(e.target.value)}
-                  rows={3}
-                  className="w-full bg-black/50 border border-cyan-500/20 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-cyan-400 transition-all resize-none placeholder-gray-600"
-                  placeholder="输入关于球员或球队的额外信息，如球员特点、对手情况、比赛策略偏好等..."
-                />
-              </div>
-
               <div className="mt-auto pt-6 border-t border-white/5">
                 {analyzeError && (
                   <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm flex items-center gap-2">
@@ -428,7 +407,7 @@ export default function App() {
                     {analyzeError}
                   </div>
                 )}
-
+                
                 <div className="flex gap-2 mb-4">
                   <button
                     onClick={() => setAnalysisMode('deep')}
