@@ -5,7 +5,6 @@ import ParticleBackground from './components/ParticleBackground';
 import { TacticalVisuals } from './components/TacticalVisuals';
 import { LandingPage } from './components/LandingPage';
 import { Player, AnalysisResult } from './types';
-import { GoogleGenAI, Type } from '@google/genai';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from './lib/supabase';
 
@@ -174,13 +173,13 @@ export default function App() {
 
   const analyzeTeam = async () => {
     if (selectedPlayerIds.length !== gameMode) return;
-    
+
     setIsAnalyzing(true);
     setAnalysisResult(null);
     setAnalyzeError(null);
     setProgress(0);
 
-    const FIXED_TIME = analysisMode === 'deep' ? 6000 : 2000; // 6s for deep, 2s for fast
+    const FIXED_TIME = analysisMode === 'deep' ? 6000 : 2000;
     const startTime = Date.now();
 
     const progressInterval = setInterval(() => {
@@ -191,85 +190,43 @@ export default function App() {
 
     try {
       const selectedPlayers = players.filter(p => selectedPlayerIds.includes(p.id));
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      
-      const playersText = selectedPlayers.map(p => 
+
+      const playersText = selectedPlayers.map(p =>
         `- ${p.name}: 控球组织 ${p.handling}/10, 投篮效率 ${p.shooting}/10, 防守影响 ${p.defense}/10, 篮板内线 ${p.rebounding}/10, 体能冲击 ${p.stamina}/10 (总分: ${p.handling + p.shooting + p.defense + p.rebounding + p.stamina}/50)`
       ).join('\n');
 
-      const extraInfoSection = extraInfo.trim()
-        ? `\n\n额外补充信息（请务必结合以下信息进行分析）：\n${extraInfo.trim()}\n`
-        : '';
+      const edgeFunctionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze_team`;
+      const headers = {
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      };
 
-      const prompt = `作为顶级的篮球战术分析师，请根据以下${gameMode}名首发球员的能力值（单项满分10分），为我们的班级篮球赛（${gameMode}V${gameMode}模式）制定全场战术分析。
-
-球员名单及能力值：
-${playersText}${extraInfoSection}
-
-请从以下6个方面进行详细、专业、富有洞察力的本质分析。请务必深入挖掘球员属性之间的化学反应，并紧密结合${gameMode}V${gameMode}的比赛特点。
-【排版要求】：
-1. 必须使用纯正的Markdown格式，绝对不要使用 HTML 标签（如 <br>、<b> 等）。
-2. 每个维度请严格分为以下三个段落，并且每个段落之间必须空一行（使用两个换行符）：
-
-### 核心观点
-（一句话总结该维度的核心策略）
-
-### 详细解析
-（深入挖掘球员属性之间的化学反应，分析具体原因）
-
-### 关键执行点
-- （执行点1）
-- （执行点2）
-- （执行点3）
-
-3. 语言要专业、热血、富有科技感。
-4. 无论在任何模式下，都必须严格遵守上述格式，确保段落之间有明显的换行和间距。`;
-
-      const modelName = analysisMode === 'deep' ? "gemini-3.1-pro-preview" : "gemini-2.5-flash";
-
-      const responsePromise = ai.models.generateContent({
-        model: modelName,
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              structure: { type: Type.STRING, description: "阵容结构 (分析这套阵容的整体特点、优势与劣势)" },
-              positions: { type: Type.STRING, description: "位置分配 (为这5名球员分配最合适的场上位置1号位到5号位)" },
-              roles: { type: Type.STRING, description: "个人职责 (详细说明每个人在场上应该做什么，发挥什么作用)" },
-              offense: { type: Type.STRING, description: "进攻体系 (推荐适合这套阵容的进攻战术，如挡拆、传切、快攻等)" },
-              defense: { type: Type.STRING, description: "防守体系 (推荐适合的防守策略，如盯人、2-3联防、3-2联防、全场紧逼等)" },
-              possession: { type: Type.STRING, description: "球权分配 (明确核心主攻点、组织核心以及角色球员的球权占比)" }
-            },
-            required: ["structure", "positions", "roles", "offense", "defense", "possession"]
-          }
-        }
-      });
-      
       const [response] = await Promise.all([
-        responsePromise,
+        fetch(edgeFunctionUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            gameMode,
+            playersText,
+            extraInfo,
+            analysisMode,
+          }),
+        }),
         new Promise(resolve => setTimeout(resolve, FIXED_TIME))
       ]);
-      
+
       clearInterval(progressInterval);
       setProgress(100);
-      
-      const text = response.text;
-      if (!text) {
-        throw new Error("API返回数据为空，可能触发了安全限制。");
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "API request failed");
       }
 
-      // Robust JSON parsing to handle potential markdown code blocks
-      let cleanText = text.trim();
-      if (cleanText.startsWith('```')) {
-        cleanText = cleanText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
-      }
+      const result = await response.json() as AnalysisResult;
 
-      const parsed = JSON.parse(cleanText) as AnalysisResult;
-      
       setTimeout(() => {
-        setAnalysisResult(parsed);
+        setAnalysisResult(result);
         setActiveTab('structure');
         setIsAnalyzing(false);
       }, 300);
