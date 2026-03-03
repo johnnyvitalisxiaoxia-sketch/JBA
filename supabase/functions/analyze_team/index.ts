@@ -71,55 +71,64 @@ ${playersText}${extraInfoSection}
 4. 无论在任何模式下，都必须严格遵守上述格式，确保段落之间有明显的换行和间距。`;
 
     const modelName =
-      analysisMode === "deep" ? "gemini-2.5-pro" : "gemini-2.5-flash";
+      analysisMode === "deep" ? "gemini-3.1-pro-preview" : "gemini-2.5-flash";
+
+    const responseJsonSchema = {
+      type: "object",
+      properties: {
+        structure: {
+          type: "string",
+          description: "阵容结构 (分析这套阵容的整体特点、优势与劣势)",
+        },
+        positions: {
+          type: "string",
+          description: "位置分配 (为这5名球员分配最合适的场上位置1号位到5号位)",
+        },
+        roles: {
+          type: "string",
+          description: "个人职责 (详细说明每个人在场上应该做什么，发挥什么作用)",
+        },
+        offense: {
+          type: "string",
+          description: "进攻体系 (推荐适合这套阵容的进攻战术，如挡拆、传切、快攻等)",
+        },
+        defense: {
+          type: "string",
+          description: "防守体系 (推荐适合的防守策略，如盯人、2-3联防、3-2联防、全场紧逼等)",
+        },
+        possession: {
+          type: "string",
+          description: "球权分配 (明确核心主攻点、组织核心以及角色球员的球权占比)",
+        },
+      },
+      required: ["structure", "positions", "roles", "offense", "defense", "possession"],
+    };
+
+    const config: Record<string, unknown> = {
+      responseMimeType: "application/json",
+    };
+
+    if (analysisMode === "deep") {
+      config.responseJsonSchema = responseJsonSchema;
+    } else {
+      config.responseSchema = {
+        type: Type.OBJECT,
+        properties: {
+          structure: { type: Type.STRING, description: "阵容结构 (分析这套阵容的整体特点、优势与劣势)" },
+          positions: { type: Type.STRING, description: "位置分配 (为这5名球员分配最合适的场上位置1号位到5号位)" },
+          roles: { type: Type.STRING, description: "个人职责 (详细说明每个人在场上应该做什么，发挥什么作用)" },
+          offense: { type: Type.STRING, description: "进攻体系 (推荐适合这套阵容的进攻战术，如挡拆、传切、快攻等)" },
+          defense: { type: Type.STRING, description: "防守体系 (推荐适合的防守策略，如盯人、2-3联防、3-2联防、全场紧逼等)" },
+          possession: { type: Type.STRING, description: "球权分配 (明确核心主攻点、组织核心以及角色球员的球权占比)" },
+        },
+        required: ["structure", "positions", "roles", "offense", "defense", "possession"],
+      };
+    }
 
     const response = await ai.models.generateContent({
       model: modelName,
       contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            structure: {
-              type: Type.STRING,
-              description:
-                "阵容结构 (分析这套阵容的整体特点、优势与劣势)",
-            },
-            positions: {
-              type: Type.STRING,
-              description: "位置分配 (为这5名球员分配最合适的场上位置1号位到5号位)",
-            },
-            roles: {
-              type: Type.STRING,
-              description: "个人职责 (详细说明每个人在场上应该做什么，发挥什么作用)",
-            },
-            offense: {
-              type: Type.STRING,
-              description:
-                "进攻体系 (推荐适合这套阵容的进攻战术，如挡拆、传切、快攻等)",
-            },
-            defense: {
-              type: Type.STRING,
-              description:
-                "防守体系 (推荐适合的防守策略，如盯人、2-3联防、3-2联防、全场紧逼等)",
-            },
-            possession: {
-              type: Type.STRING,
-              description:
-                "球权分配 (明确核心主攻点、组织核心以及角色球员的球权占比)",
-            },
-          },
-          required: [
-            "structure",
-            "positions",
-            "roles",
-            "offense",
-            "defense",
-            "possession",
-          ],
-        },
-      },
+      config,
     });
 
     const text = response.text;
