@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shield, ShieldAlert, Plus, Trash2, Edit2, Check, X, Cpu, Activity, Database, Lock, Unlock, Zap, ChevronRight, Users, Map, Target, PieChart, MessageSquare } from 'lucide-react';
+import { Shield, ShieldAlert, Plus, Trash2, CreditCard as Edit2, Check, X, Cpu, Activity, Database, Lock, Clock as Unlock, Zap, ChevronRight, Users, Map, Target, ChartPie as PieChart, MessageSquare } from 'lucide-react';
 import ParticleBackground from './components/ParticleBackground';
 import { TacticalVisuals } from './components/TacticalVisuals';
 import { LandingPage } from './components/LandingPage';
