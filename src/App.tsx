@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shield, ShieldAlert, Plus, Trash2, CreditCard as Edit2, Check, X, Cpu, Activity, Database, Lock, Zap, ChevronRight, Users, Map, Target, ChartPie as PieChart, MessageSquare } from 'lucide-react';
+import { Shield, ShieldAlert, Plus, Trash2, Edit2, Check, X, Cpu, Activity, Database, Lock, Unlock, Zap, ChevronRight, Users, Map, Target, PieChart } from 'lucide-react';
 import ParticleBackground from './components/ParticleBackground';
 import { TacticalVisuals } from './components/TacticalVisuals';
 import { LandingPage } from './components/LandingPage';
-import { ChatEngine } from './components/ChatEngine';
 import { Player, AnalysisResult } from './types';
 import { GoogleGenAI, Type } from '@google/genai';
 import ReactMarkdown from 'react-markdown';
@@ -62,7 +61,6 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [activeTab, setActiveTab] = useState<keyof AnalysisResult>('structure');
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
-  const [showChatEngine, setShowChatEngine] = useState(false);
 
   const fetchPlayers = async () => {
     const { data, error } = await supabase
@@ -427,19 +425,11 @@ ${playersText}${extraInfoSection}
         {/* Right Column: Analysis Panel */}
         <div className="lg:col-span-4 flex flex-col gap-6">
           <div className="glass-panel rounded-2xl p-6 border-cyan-500/30 relative overflow-hidden h-full flex flex-col">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 via-blue-500 to-cyan-500 opacity-50" />
-
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <Activity className="w-5 h-5 text-cyan-400" /> 战术推演引擎
-              </h2>
-              <button
-                onClick={() => setShowChatEngine(true)}
-                className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono text-cyan-400 border border-cyan-500/30 rounded-lg hover:bg-cyan-500/10 transition-colors"
-              >
-                <MessageSquare className="w-3.5 h-3.5" /> 对话引擎
-              </button>
-            </div>
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 via-purple-500 to-cyan-500 opacity-50" />
+            
+            <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-cyan-400" /> 战术推演引擎
+            </h2>
 
             <div className="flex-1 flex flex-col">
               {selectedPlayerIds.length === 0 ? (
@@ -562,23 +552,15 @@ ${playersText}${extraInfoSection}
             {/* Header */}
             <div className="relative z-10 border-b border-cyan-500/20 px-6 py-4 flex justify-between items-center bg-black/50 backdrop-blur-md">
               <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                <Activity className="w-6 h-6 text-cyan-400" />
+                <Activity className="w-6 h-6 text-cyan-400" /> 
                 <span className="neon-text">NEXUS 深度战术分析报告</span>
               </h2>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setShowChatEngine(true)}
-                  className="px-4 py-2 text-cyan-400 border border-cyan-500/30 rounded hover:bg-cyan-500/10 transition-colors flex items-center gap-2"
-                >
-                  <MessageSquare className="w-4 h-4" /> 对话引擎
-                </button>
-                <button
-                  onClick={() => setAnalysisResult(null)}
-                  className="px-4 py-2 text-gray-400 border border-gray-700 rounded hover:bg-white/5 transition-colors flex items-center gap-2"
-                >
-                  <X className="w-4 h-4" /> 退出分析系统
-                </button>
-              </div>
+              <button 
+                onClick={() => setAnalysisResult(null)}
+                className="px-4 py-2 text-cyan-400 border border-cyan-500/30 rounded hover:bg-cyan-500/10 transition-colors flex items-center gap-2"
+              >
+                <X className="w-4 h-4" /> 退出分析系统
+              </button>
             </div>
 
             {/* Content */}
@@ -695,17 +677,6 @@ ${playersText}${extraInfoSection}
               </form>
             </motion.div>
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Chat Engine */}
-      <AnimatePresence>
-        {showChatEngine && (
-          <ChatEngine
-            players={players}
-            gameMode={gameMode}
-            onClose={() => setShowChatEngine(false)}
-          />
         )}
       </AnimatePresence>
 
